@@ -1,4 +1,3 @@
-from fast_and_trash import *
 from Sounds import *
 from mouse_engine import *
 import pygame
@@ -16,6 +15,7 @@ tiny_font = pygame.font.SysFont('Comic Sans MS', 20)
 
 Window_size = [900, 600]
 Default_size = Window_size
+monitor_size = [pygame.display.Info().current_w, pygame.display.Info().current_h]
 screen = pygame.display.set_mode(Window_size)
 display = pygame.Surface((900, 600))
 pygame.display.set_caption("Planetio")
@@ -44,11 +44,18 @@ def menu(screenX, fs, Win_size):
     sheets[3].set_colorkey((0, 0, 0))
     s_index = 0
 
+    load = [pygame.image.load("assets/textures/load.png").convert(),
+            pygame.image.load("assets/textures/load_hover.png").convert()]
+    for item in load:
+        item.set_colorkey((0, 0, 0))
+    l_index = 0
+
     # values to pass
 
     setup = {"rotate": True,
              "gravity": False,
-             "cheatsheet": True}
+             "cheatsheet": True,
+             "load": False}
 
     # mouse
 
@@ -56,17 +63,6 @@ def menu(screenX, fs, Win_size):
     colorX = (0, 0, 0)
     rotate_color = (0, 0, 0)
     r_circle_cords = [730, 500]
-
-    # checking if tutorial
-
-    file = open("assets/save", "r")
-    place = file.read()
-    file.close()
-    if place == "tutorial":
-        screenX, fs, Win_size = tutorial(screenX, fs, Win_size)
-        file = open("assets/save", "w")
-        file.write("Yes u found the save file congrats.")
-        file.close()
 
     # game loop
     while alive:
@@ -83,10 +79,20 @@ def menu(screenX, fs, Win_size):
                 mouse.update(Win_size, Default_size)
 
                 # setting actions for buttons
+                if mouse.in_circle([200, 120], 50):
+                    with open("assets/save.json", "r") as f:
+                        file = json.load(f)
+
+                    if file != {}:
+                        setup["load"] = True
+                    sounds["click"].play(0)
+                    screenX, fs, Win_size = run_game(screenX, fs, setup, Win_size)
+
+                    setup["load"] = False
 
                 if mouse.in_circle([450, 300], 50):
                     sounds["click"].play(0)
-                    run_game(screenX, fs, setup, Win_size)
+                    screenX, fs, Win_size = run_game(screenX, fs, setup, Win_size)
 
                 if mouse.in_circle([700, 500], 20):
                     sounds["click"].play(0)
@@ -130,6 +136,11 @@ def menu(screenX, fs, Win_size):
                 else:
                     s_index = 0
 
+                if mouse.in_circle([200, 120], 50):
+                    l_index = 1
+                else:
+                    l_index = 0
+
             if event.type == KEYDOWN:
                 if event.key == K_f:
                     fs = not fs
@@ -137,9 +148,9 @@ def menu(screenX, fs, Win_size):
                         Win_size = Default_size
                         screenX = pygame.display.set_mode(Win_size)
                     else:
-                        screenX = pygame.display.set_mode(Win_size, pygame.FULLSCREEN)
+                        screenX = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
                         d = pygame.display.get_surface()
-                        Win_size = [d.get_width(), int((d.get_width()*2)/3)]
+                        Win_size = [int((d.get_height() / 2) * 3), d.get_height()]
 
                 elif event.key == K_ESCAPE:
                     pygame.quit()
@@ -163,6 +174,10 @@ def menu(screenX, fs, Win_size):
             display.blit(sheets[1 + (s_index * 2)], [700, 100])
         else:
             display.blit(sheets[0 + (s_index * 2)], [700, 100])
+
+        # load
+
+        display.blit(load[l_index], [140, 60])
 
         # basic loop config
 
@@ -199,6 +214,10 @@ def run_game(screenX, fs, setup, Win_size):
     cheatsheet = pygame.image.load("assets/textures/cheatsheet.png").convert()
     cheatsheet.set_colorkey((0, 0, 0))
     cheatsheet.set_alpha(180)
+
+    # if loading
+    if setup["load"]:
+        setup = game.load("assets/save.json", setup)
 
     while game.alive:
 
@@ -260,6 +279,7 @@ def run_game(screenX, fs, setup, Win_size):
 
         for event in pygame.event.get():
             if event.type == QUIT:
+                game.save("assets/save.json", setup)
                 pygame.quit()
                 sys.exit()
 
@@ -304,14 +324,17 @@ def run_game(screenX, fs, setup, Win_size):
                         Win_size = Default_size
                         screenX = pygame.display.set_mode(Win_size)
                     else:
-                        screenX = pygame.display.set_mode(Win_size, pygame.FULLSCREEN)
+                        screenX = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
                         d = pygame.display.get_surface()
-                        Win_size = [d.get_width(), int((d.get_width() * 2) / 3)]
+                        Win_size = [int((d.get_height() / 2) * 3), d.get_height()]
 
                 elif event.key == K_ESCAPE:
+                    game.save("assets/save.json", setup)
                     return screenX, fs, Win_size
 
                 elif event.key == K_r:
+                    with open("assets/save.json", "w") as f:
+                        json.dump({}, f, indent=4)
                     return screenX, fs, Win_size
 
                 # managing scroll
@@ -351,6 +374,10 @@ def run_game(screenX, fs, setup, Win_size):
         game.disp_circles(display, scroll)
         screenX.blit(pygame.transform.scale(display, Win_size), (0, 0))
         pygame.display.update()
+
+        # todo save
+        with open("assets/save.json", "w") as f:
+            json.dump({}, f, indent=4)
 
         # ending
         if game.collapse:
@@ -416,9 +443,9 @@ def end(screenX, fs, Win_size, game, reason):
                         Win_size = Default_size
                         screenX = pygame.display.set_mode(Win_size)
                     else:
-                        screenX = pygame.display.set_mode(Win_size, pygame.FULLSCREEN)
+                        screenX = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
                         d = pygame.display.get_surface()
-                        Win_size = [d.get_width(), int((d.get_width() * 2) / 3)]
+                        Win_size = [int((d.get_height() / 2) * 3), d.get_height()]
 
                 elif event.key == K_ESCAPE:
                     return screenX, fs, Win_size
@@ -433,65 +460,6 @@ def end(screenX, fs, Win_size, game, reason):
                     menu_index = 1
                 else:
                     menu_index = 0
-
-        # basic loop config
-
-        screenX.blit(pygame.transform.scale(display, Win_size), (0, 0))
-        pygame.display.update()
-        clock.tick(60)
-
-
-def tutorial(screenX, fs, Win_size):
-    menu_buttons = pygame.transform.scale(pygame.image.load("assets/textures/tutorial/menu_buttons.png").convert(),
-                                          [400, 400])
-    full_s = small_font.render("F = FULLSCREEN", False, (0, 0, 0))
-    colorX = (10, 10, 10)
-    mouse = Mouse([0, 0])
-    mouse.update(Win_size, Default_size)
-
-    alive = True
-
-    while alive:
-        mouse.update(Win_size, Default_size)
-
-        # drawing things
-        display.fill((255, 255, 255))
-
-        display.blit(menu_buttons, [50, 40])
-        display.blit(full_s, [50, 470])
-
-        pygame.draw.circle(display, colorX, [700, 300], 40)
-
-        # event loop
-
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
-
-            elif event.type == KEYDOWN:
-                if event.key == K_f:
-                    fs = not fs
-                    if fs is False:
-                        Win_size = Default_size
-                        screenX = pygame.display.set_mode(Win_size)
-                    else:
-                        screenX = pygame.display.set_mode(Win_size, pygame.FULLSCREEN)
-                        d = pygame.display.get_surface()
-                        Win_size = [d.get_width(), int((d.get_width()*2)/3)]
-
-                elif event.key == K_ESCAPE:
-                    return screenX, fs, Win_size
-
-            elif event.type == MOUSEMOTION:
-                if mouse.in_circle([700, 300], 40):
-                    colorX = (80, 80, 80)
-                else:
-                    colorX = (10, 10, 10)
-
-            elif event.type == MOUSEBUTTONDOWN:
-                if mouse.in_circle([700, 300], 40):
-                    return screenX, fs, Win_size
 
         # basic loop config
 

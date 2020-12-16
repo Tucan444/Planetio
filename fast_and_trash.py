@@ -1,3 +1,4 @@
+import json
 import math
 import random
 import pygame
@@ -105,13 +106,13 @@ class Game:
         for circle in self.circles:
             dist = distance_indicator(circle.center, self.midpoint)
             angle = find_angle_between_points(circle.center, self.midpoint)
-            final_value[0] += round(math.cos(angle) * dist, 2) * (circle.radius/20)
-            final_value[1] += round(math.sin(angle) * dist, 2) * (circle.radius/20)
+            final_value[0] += round(math.cos(angle) * dist, 2) * (circle.radius / 20)
+            final_value[1] += round(math.sin(angle) * dist, 2) * (circle.radius / 20)
 
         dist = distance_indicator(self.midpoint, [final_value[0] + self.midpoint[0], final_value[1] + self.midpoint[1]])
         if dist > self.limit:
             self.collapse = True
-            self.alive =False
+            self.alive = False
 
         elif dist > self.limit * 0.6:
             self.black.color_value.r = round((dist - (self.limit * 0.6)) * (255 / (self.limit * 0.4)))
@@ -160,6 +161,44 @@ class Game:
                 circle.center = [self.midpoint[0] + (math.cos(angle) * dist),
                                  self.midpoint[1] + (math.sin(angle) * dist)]
 
+    # saving & loading
+    def save(self, path, setup):
+
+        save = {"gravity": setup["gravity"],
+                "next_circle": self.c_template,
+                "limit": self.limit,
+                "points": self.points,
+                "circles": []}
+
+        for circle in self.circles:
+            save["circles"].append({"radius": circle.radius,
+                                    "center": circle.center,
+                                    "color": circle.color,
+                                    "color_value": str(circle.color_value)})
+
+        del save["circles"][0]
+
+        with open(path, "w") as f:
+            json.dump(save, f, indent=4)
+
+    def load(self, path, setup):
+
+        with open(path, "r") as f:
+            save = json.load(f)
+
+        setup["gravity"] = save["gravity"]
+
+        self.c_template = save["next_circle"]
+
+        for circle in save["circles"]:
+            self.circles.append(Circle(circle["radius"], circle["center"], circle["color"],
+                                       pygame.Color(eval(circle["color_value"]))))
+
+        self.points = save["points"]
+        self.limit = save["limit"]
+
+        return setup
+
 
 class Scroll:
     def __init__(self, scroll):
@@ -203,11 +242,11 @@ class Scroll:
 
 def get_colors():
     colors = {"red": pygame.Color(255, 0, 0, 125),  # weight 16
-              "blue": pygame.Color(0, 0, 220, 125),     # weight 20
-              "green": pygame.Color(0, 220, 0, 125),    # weight 20
-              "yellow": pygame.Color(252, 239, 56, 125),    # weight 22
-              "purple": pygame.Color(105, 0, 158, 125),     # weight 4
-              "smaragd": pygame.Color(0, 214, 168, 125)}    # weight 1
+              "blue": pygame.Color(0, 0, 220, 125),  # weight 20
+              "green": pygame.Color(0, 220, 0, 125),  # weight 20
+              "yellow": pygame.Color(252, 239, 56, 125),  # weight 22
+              "purple": pygame.Color(105, 0, 158, 125),  # weight 4
+              "smaragd": pygame.Color(0, 214, 168, 125)}  # weight 1
     return colors
 
 
@@ -219,7 +258,7 @@ def get_random_color():
     colors = add_to_list("yellow", 18, colors)
     colors = add_to_list("purple", 4, colors)
     colors = add_to_list("smaragd", 1, colors)
-    return colors[random.randint(0, len(colors)-1)]
+    return colors[random.randint(0, len(colors) - 1)]
 
 
 def get_circle_template():
@@ -267,7 +306,7 @@ def get_circle(color_value, radius):
 
 
 def get_gravity_sur(gravity, limit):
-    ratio = limit/40
+    ratio = limit / 40
     sur = pygame.Surface((100, 100))
     pygame.draw.circle(sur, (200, 200, 200), [50, 50], 40)
     pygame.draw.circle(sur, (217, 24, 114), [50 + (gravity[0] / ratio), 50 + (gravity[1] / ratio)], 10)
